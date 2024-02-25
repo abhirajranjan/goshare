@@ -3,8 +3,9 @@ module goshare
 go 1.22
 
 require (
+	github.com/caarlos0/env/v10 v10.0.0
 	github.com/emirpasic/gods v1.18.1
-	github.com/joho/godotenv v1.5.1
+	github.com/pkg/errors v0.9.1
 	github.com/pkg/profile v1.7.0
 )
 

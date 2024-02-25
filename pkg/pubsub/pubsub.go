@@ -2,6 +2,7 @@ package pubsub
 
 import (
 	"errors"
+	"log"
 	"sync"
 	"time"
 
@@ -16,7 +17,7 @@ var (
 type PubSub struct {
 	DefaultTtl time.Duration
 	data       *treemap.Map
-	mu         sync.Mutex
+	mu         sync.RWMutex
 }
 
 type TTLData struct {
@@ -26,7 +27,7 @@ type TTLData struct {
 
 func NewPubSub(ttl time.Duration) *PubSub {
 	p := &PubSub{
-		mu:         sync.Mutex{},
+		mu:         sync.RWMutex{},
 		data:       treemap.NewWithStringComparator(),
 		DefaultTtl: ttl,
 	}
@@ -36,6 +37,9 @@ func NewPubSub(ttl time.Duration) *PubSub {
 }
 
 func (p *PubSub) Get(id string) (any, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
 	ival, ok := p.data.Get(id)
 	if !ok {
 		return nil, ErrNotFound
@@ -53,6 +57,8 @@ func (p *PubSub) Set(id string, data any) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
+	log.Println("data got", id)
+
 	p.data.Put(id, TTLData{
 		TTL:  time.Now().Add(p.DefaultTtl),
 		Data: data,
@@ -65,14 +71,25 @@ func (p *PubSub) gc() {
 
 	for {
 		<-ticker.C
-		p.mu.Lock()
+		expired := 0
 
-		p.data = p.data.Select(func(key, value interface{}) bool {
+		p.mu.RLock()
+		tree := p.data.Select(func(key, value interface{}) bool {
 			data := value.(TTLData)
-			return !time.Now().After(data.TTL)
-		})
+			expire := !time.Now().After(data.TTL)
+			if !expire {
+				log.Printf("expired %#v\n", data)
+				expired++
+			}
 
-		p.mu.Unlock()
-		ticker.Reset(5 * time.Second)
+			return expire
+		})
+		p.mu.RUnlock()
+
+		if expired != 0 {
+			p.mu.Lock()
+			p.data = tree
+			p.mu.Unlock()
+		}
 	}
 }

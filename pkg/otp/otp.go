@@ -2,66 +2,70 @@ package otp
 
 import (
 	"crypto/hmac"
-	"crypto/sha1"
-	"encoding/base32"
-	"encoding/binary"
+	"crypto/sha256"
 	"fmt"
-	"math"
-	"strings"
 	"time"
 )
 
-const (
-	mask1              = 0xf
-	mask2              = 0x7f
-	mask3              = 0xff
-	timeSplitInSeconds = 30
-	shift24            = 24
-	shift16            = 16
-	shift8             = 8
-	sumByteLength      = 8
-	passwordHashLength = 32
-)
+type totp struct {
+	ValidDuration time.Duration
+	salt          []byte
+}
 
-// GenerateOTPCode generates a 6 digit TOTP from the secret Token.
-func GenerateOTPCode(token string, when time.Time, length uint) (string, int64, error) {
-	timer := uint64(math.Floor(float64(when.Unix()) / float64(timeSplitInSeconds)))
-	remainingTime := timeSplitInSeconds - when.Unix()%timeSplitInSeconds
+type TotpOpts func(*totp)
 
-	// Remove spaces, some providers are giving us in a readable format,
-	// so they add spaces in there. If it's not removed while pasting in,
-	// remove it now.
-	token = strings.ReplaceAll(token, " ", "")
+func NewTOTP(opts ...TotpOpts) (otp totp) {
+	otp.setDefault()
+	for _, opt := range opts {
+		opt(&otp)
+	}
+	return
+}
 
-	// It should be uppercase always
-	token = strings.ToUpper(token)
+func (otp *totp) setDefault() {
+	otp.ValidDuration = time.Second * 30
+}
 
-	secretBytes, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(token)
-	if err != nil {
-		return "", 0, err
+func (otp totp) GenerateOTP(secret string) (token string, origin time.Time, interval time.Duration) {
+	currentTime := time.Now()
+	currentTimeUnix := currentTime.Unix()
+	timeInterval := currentTimeUnix / int64(otp.ValidDuration.Seconds())
+
+	// Convert the time interval to a byte slice
+	timeBytes := make([]byte, 8)
+	for i := 7; i >= 0; i-- {
+		timeBytes[i] = byte(timeInterval & 0xff)
+		timeInterval >>= 8
 	}
 
-	if length == 0 {
-		length = 6
+	// Generate HMAC-SHA256 hash
+	hasher := hmac.New(sha256.New, []byte(secret))
+	hasher.Write(timeBytes)
+	if otp.salt != nil {
+		hasher.Write(otp.salt)
 	}
+	hash := hasher.Sum(nil)
 
-	buf := make([]byte, sumByteLength)
-	mac := hmac.New(sha1.New, secretBytes)
+	// Dynamic truncation to extract 4 bytes
+	offset := hash[len(hash)-1] & 0x0f
+	binary := (int(hash[offset]) & 0x7f) << 24
+	binary |= (int(hash[offset+1]) & 0xff) << 16
+	binary |= (int(hash[offset+2]) & 0xff) << 8
+	binary |= int(hash[offset+3]) & 0xff
 
-	binary.BigEndian.PutUint64(buf, timer)
-	_, _ = mac.Write(buf)
-	sum := mac.Sum(nil)
+	// Generate 6-digit TOTP
+	totp := binary % 1000000
+	return fmt.Sprintf("%06d", totp), currentTime, otp.ValidDuration
+}
 
-	// http://tools.ietf.org/html/rfc4226#section-5.4
-	offset := sum[len(sum)-1] & mask1
-	value := int64(((int(sum[offset]) & mask2) << shift24) |
-		((int(sum[offset+1] & mask3)) << shift16) |
-		((int(sum[offset+2] & mask3)) << shift8) |
-		(int(sum[offset+3]) & mask3))
+func WithDuration(d time.Duration) TotpOpts {
+	return func(t *totp) {
+		t.ValidDuration = d
+	}
+}
 
-	modulo := int32(value % int64(math.Pow10(int(length))))
-
-	format := fmt.Sprintf("%%0%dd", length)
-
-	return fmt.Sprintf(format, modulo), remainingTime, nil
+func WithSalt(salt []byte) TotpOpts {
+	return func(t *totp) {
+		t.salt = salt
+	}
 }

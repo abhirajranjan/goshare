@@ -4,26 +4,39 @@ import (
 	"crypto/ecdsa"
 	"crypto/x509"
 	"encoding/pem"
-	"log"
 	"os"
+	"reflect"
+	"time"
 
-	_ "github.com/joho/godotenv/autoload"
+	"github.com/caarlos0/env/v10"
+	"github.com/pkg/errors"
 )
 
 type config struct {
 	Server server
 	Key    key
+	Pubsub pubsub
+	Otp    otp
 }
 
 var cfg config
+var fnMap = make(map[reflect.Type]env.ParserFunc)
 
 type key struct {
-	PrivateKey *ecdsa.PrivateKey
-	PublicKey  *ecdsa.PublicKey
+	PrivateKey *ecdsa.PrivateKey `env:"key.private" envDefault:"privatekey"`
+	PublicKey  *ecdsa.PublicKey  `env:"key.pub" envDefault:"pubkey"`
 }
 
 type server struct {
-	Addr string
+	Addr string `env:"srv.addr" envDefault:":8080"`
+}
+
+type pubsub struct {
+	TTL time.Duration `env:"pubsub.ttl" envDefault:"1m"`
+}
+
+type otp struct {
+	ValidDuration time.Duration `env:"otp.valid_duration" envDefault:"30s"`
 }
 
 func GetConfig() config {
@@ -31,41 +44,52 @@ func GetConfig() config {
 }
 
 func init() {
-	pubkey := os.Getenv("public_key")
-	if pubkey == "" {
-		log.Println("error getting env public_key")
-	} else {
-		pubblock, _ := pem.Decode([]byte(pubkey))
-		pubIKey, err := x509.ParsePKIXPublicKey(pubblock.Bytes)
+	fnMap[reflect.TypeFor[ecdsa.PrivateKey]()] = func(v string) (interface{}, error) {
+		privateKeyByte, err := os.ReadFile(v)
 		if err != nil {
-			log.Panic("error loading public key", err)
+			return nil, err
+		}
+
+		block, _ := pem.Decode([]byte(privateKeyByte))
+		privateKey, err := x509.ParseECPrivateKey(block.Bytes)
+		if err != nil {
+			return nil, errors.Wrap(err, "init.private_key")
+		}
+
+		return *privateKey, nil
+	}
+
+	fnMap[reflect.TypeFor[ecdsa.PublicKey]()] = func(v string) (interface{}, error) {
+		publicKeyByte, err := os.ReadFile(v)
+		if err != nil {
+			return nil, errors.Wrap(err, "init.public_key")
+		}
+
+		block, _ := pem.Decode([]byte(publicKeyByte))
+		pubIKey, err := x509.ParsePKIXPublicKey(block.Bytes)
+		if err != nil {
+			return nil, errors.Wrap(err, "init.public_key")
 		}
 
 		publicKey, ok := pubIKey.(*ecdsa.PublicKey)
 		if !ok {
-			log.Panic("error casting public key to ecdsa.PublicKey")
+			return nil, errors.Errorf("cannot cast publicKey[%T] to *ecdsa.PublicKey", publicKey)
 		}
 
-		cfg.Key.PublicKey = publicKey
+		return *publicKey, nil
 	}
 
-	privkey := os.Getenv("private_key")
-	if privkey == "" {
-		log.Println("error getting env private_key")
-	} else {
-		block, _ := pem.Decode([]byte(privkey))
-		privateKey, err := x509.ParseECPrivateKey(block.Bytes)
-		if err != nil {
-			log.Panic("error loading private key")
-		}
-
-		cfg.Key.PrivateKey = privateKey
+	fnMap[reflect.TypeFor[time.Duration]()] = func(v string) (interface{}, error) {
+		return time.ParseDuration(v)
 	}
+}
 
-	addr := os.Getenv("goshare_addr")
-	if addr != "" {
-		log.Println("error getting env goshare_addr")
-	} else {
-		cfg.Server.Addr = addr
+func init() {
+	if err := env.ParseWithOptions(&cfg, env.Options{
+		Environment:     env.ToMap(os.Environ()),
+		RequiredIfNoDef: true,
+		FuncMap:         fnMap,
+	}); err != nil {
+		panic(err)
 	}
 }
