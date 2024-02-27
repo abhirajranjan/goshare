@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"encoding/json"
-	"fmt"
 	"goshare/internal/resources"
 	"log"
 	"net/http"
@@ -29,9 +28,8 @@ func (c Controller) BroadcastHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Println(token)
 	otp, originTime, interval := c.otpGen.GenerateOTP(token)
-	c.pubSub.Set(otp, req)
+	c.pubSub.Set(otp, req.Files)
 
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(resources.BroadcastResponse{

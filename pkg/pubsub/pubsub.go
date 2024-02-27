@@ -36,21 +36,17 @@ func NewPubSub(ttl time.Duration) *PubSub {
 	return p
 }
 
-func (p *PubSub) Get(id string) (any, error) {
+func (p *PubSub) Get(id string) (any, bool) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
 	ival, ok := p.data.Get(id)
 	if !ok {
-		return nil, ErrNotFound
+		return nil, false
 	}
 
 	data := ival.(TTLData)
-	if ok := time.Now().After(data.TTL); ok {
-		return data.Data, ErrTTLExpired
-	}
-
-	return data.Data, nil
+	return data.Data, true
 }
 
 func (p *PubSub) Set(id string, data any) {

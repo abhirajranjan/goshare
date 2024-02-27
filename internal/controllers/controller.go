@@ -13,7 +13,7 @@ type otpGen interface {
 
 type pubSub interface {
 	Set(id string, data any)
-	Get(id string) (any, error)
+	Get(id string) (any, bool)
 }
 
 type crypto interface {

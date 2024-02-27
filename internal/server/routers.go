@@ -20,6 +20,7 @@ func NewServer(controller *controllers.Controller) *Server {
 func (s *Server) setRoutes() {
 	http.HandleFunc("POST /broadcast", s.controller.BroadcastHandler)
 	http.HandleFunc("GET /identity", s.controller.IdentityHandler)
+	http.HandleFunc("GET /lookup", s.controller.LookupHandler)
 }
 
 func (s *Server) Start(addr string) error {
