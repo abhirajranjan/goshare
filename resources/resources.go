@@ -34,11 +34,11 @@ type Media struct {
 type EventType struct {
 	Type string
 
-	Otp       string    `json:",omitempty"`
-	ValidTill time.Time `json:",omitempty"`
+	Otp       string    `json:"otp,omitempty"`
+	ValidTill time.Time `json:"valid_till,omitempty"`
 
-	Code        string `json:",omitempty"`
-	ResponseURL string `json:",omitempty"`
+	Code        string `json:"code,omitempty"`
+	ResponseURL string `json:"id,omitempty"`
 }
 
 func OTPEvent(otp string, validTill time.Time) EventType {

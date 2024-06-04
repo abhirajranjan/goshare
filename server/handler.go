@@ -107,8 +107,8 @@ func (s *Server) handleSender(w http.ResponseWriter, r *http.Request) error {
 }
 
 type getMetaDataResponse struct {
-	MetaData []resources.Media
-	Code     string
+	MetaData []resources.Media `json:"metadata"`
+	Code     string            `json:"code"`
 }
 
 func (s *Server) handleMetaData(w http.ResponseWriter, r *http.Request) error {
