@@ -2,7 +2,7 @@ package config
 
 import (
 	"flag"
-	"goshare/internal/resources"
+	"goshare/resources"
 	"log/slog"
 	"os"
 

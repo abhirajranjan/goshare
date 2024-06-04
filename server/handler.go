@@ -8,7 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 
-	"goshare/internal/resources"
+	"goshare/resources"
 
 	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"

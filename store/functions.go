@@ -4,7 +4,7 @@ import (
 	"io"
 	"mime/multipart"
 
-	"goshare/internal/resources"
+	"goshare/resources"
 
 	"github.com/pkg/errors"
 )

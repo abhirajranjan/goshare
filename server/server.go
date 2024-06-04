@@ -1,11 +1,12 @@
 package server
 
 import (
-	"goshare/internal/resources"
 	"io"
 	"log/slog"
 	"mime/multipart"
 	"net/http"
+
+	"goshare/resources"
 )
 
 type GetSetter interface {

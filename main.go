@@ -1,11 +1,12 @@
 package main
 
 import (
-	"goshare/internal/config"
-	"goshare/internal/otp"
-	"goshare/internal/server"
-	"goshare/internal/store"
 	"net/http"
+
+	"goshare/config"
+	"goshare/otp"
+	"goshare/server"
+	"goshare/store"
 )
 
 func main() {

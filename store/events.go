@@ -2,9 +2,10 @@ package store
 
 import (
 	"archive/zip"
-	"goshare/internal/resources"
 	"io"
 	"time"
+
+	"goshare/resources"
 )
 
 type broadcast struct {
