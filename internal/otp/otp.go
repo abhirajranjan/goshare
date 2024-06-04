@@ -7,27 +7,32 @@ import (
 	"time"
 )
 
-type totp struct {
+type Totp struct {
 	ValidDuration time.Duration
 	salt          []byte
 }
 
-type TotpOpts func(*totp)
+type TotpOpts func(*Totp)
 
-func NewTOTP(opts ...TotpOpts) (otp totp) {
+func NewTotp(opts ...TotpOpts) (otp Totp) {
 	otp.setDefault()
 	for _, opt := range opts {
 		opt(&otp)
 	}
+
 	return
 }
 
-func (otp *totp) setDefault() {
+func (otp *Totp) setDefault() {
 	otp.ValidDuration = time.Second * 30
 }
 
-func (otp totp) GenerateOTP(secret string) (token string, origin time.Time, interval time.Duration) {
-	currentTime := time.Now()
+func (otp *Totp) GenerateOTP(secret string) (token string, origin time.Time, interval time.Duration) {
+	return otp.GenerateOTPAt(secret, time.Now())
+}
+
+func (otp *Totp) GenerateOTPAt(secret string, At time.Time) (token string, origin time.Time, interval time.Duration) {
+	currentTime := At
 	currentTimeUnix := currentTime.Unix()
 	timeInterval := currentTimeUnix / int64(otp.ValidDuration.Seconds())
 
@@ -53,19 +58,19 @@ func (otp totp) GenerateOTP(secret string) (token string, origin time.Time, inte
 	binary |= (int(hash[offset+2]) & 0xff) << 8
 	binary |= int(hash[offset+3]) & 0xff
 
-	// Generate 6-digit TOTP
-	totp := binary % 1000000
-	return fmt.Sprintf("%06d", totp), currentTime, otp.ValidDuration
+	// Generate 6-digit Totp
+	Totp := binary % 1000000
+	return fmt.Sprintf("%06d", Totp), currentTime, otp.ValidDuration
 }
 
 func WithDuration(d time.Duration) TotpOpts {
-	return func(t *totp) {
+	return func(t *Totp) {
 		t.ValidDuration = d
 	}
 }
 
 func WithSalt(salt []byte) TotpOpts {
-	return func(t *totp) {
+	return func(t *Totp) {
 		t.salt = salt
 	}
 }
