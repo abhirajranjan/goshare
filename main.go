@@ -1,3 +1,5 @@
+///$(which go) run $0 $@; exit $?
+
 package main
 
 import (
